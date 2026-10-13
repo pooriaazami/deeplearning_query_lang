@@ -1,0 +1,3 @@
+# Dependencies for Deep Learning Description Language
+# Core dependencies
+# Add backend-specific dependencies as needed (e.g., torch, tensorflow, jax)
