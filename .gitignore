@@ -139,6 +139,9 @@ generated/
 
 FEATURES.md
 PROJECT_CHECKLIST.md
+IMPLEMENTATION_SUMMARY.md
+tests/reference_implementations/README.md
+FINAL_SUMMARY.md
 
 dl-scheduler/*
 research-tracker/*
