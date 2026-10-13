@@ -190,8 +190,27 @@ class Parser:
         """Parse an output declaration: OUTPUT = tensor_name"""
         self.expect('OUTPUT')
         self.expect('ASSIGN')
-        var_token = self.expect('IDENTIFIER')
-        var_name = var_token[1]
+        # Parse the expression (could be variable reference or function call)
+        expr = self.parse_expression()
+        var_name = None
+
+        if isinstance(expr, Variable):
+            # Simple variable reference: OUTPUT = var_name
+            var_name = expr.name
+        elif isinstance(expr, FunctionCall):
+            # Function call: OUTPUT = function_call(...)
+            # Look for 'name' keyword argument to determine the variable name
+            if 'name' in expr.kwargs:
+                name_arg = expr.kwargs['name']
+                if isinstance(name_arg, String):
+                    var_name = name_arg.value
+                else:
+                    raise SyntaxError(f'OUTPUT function call name parameter must be a string literal, got {type(name_arg).__name__}')
+            else:
+                raise SyntaxError(f'OUTPUT function call must include a name parameter')
+        else:
+            raise SyntaxError(f'OUTPUT statement expects a variable name or function call, got {type(expr).__name__}')
+
         self.expect('NEWLINE')
         return Output(source=var_name)
 
@@ -274,7 +293,8 @@ class Parser:
         self.expect('REPEAT')
         count_token = self.expect('NUMBER')
         count = int(count_token[1])
-        self.expect('IDENTIFIER')  # 'times'
+        self.expect('times')  # 'times'
+        self.expect('COLON')
         self.expect('NEWLINE')
 
         # Parse body
@@ -333,19 +353,41 @@ class Parser:
 
     def parse_expression(self):
         """Parse an expression (layer instantiation, function call, or variable)"""
+        if not self.current_token:
+            raise SyntaxError(f'Expected identifier, got {self.current_token}')
+
+        # Handle special tokens that can be expressions (INPUT, OUTPUT)
+        if self.current_token[0] in ('INPUT', 'OUTPUT'):
+            special_token = self.current_token
+            self.advance()
+            # Return a variable node representing the special token
+            return Variable(name=special_token[0])
+
         # Look for layer type or function call
-        if self.current_token and self.current_token[0] == 'IDENTIFIER':
+        known_function_types = {
+            'CONV2D', 'MAXPOOL2D', 'UPSAMPLING2D', 'GLOBALAVERAGEPOOLING2D',
+            'DENSE', 'FLATTEN', 'RESHAPE', 'BATCHNORMALIZATION', 'ACTIVATION',
+            'ADD', 'CONCATENATE', 'ELEMENTWISEMULTIPLY', 'MULTIPLY',
+            'LSTM', 'GRU', 'ZEROS', 'RANDOMNORMAL', 'EXP',
+            'CUSTOM'
+        }
+
+        if self.current_token[0] in known_function_types:
+            # This is a known layer type token (like DENSE, Conv2D, etc.)
+            func_name = self.current_token[1]
+            return self.parse_function_call(func_name)
+        elif self.current_token[0] == 'IDENTIFIER':
+            # Could be a variable reference or a function call written in different case
             func_name = self.current_token[1]
 
             # Check if it's a known layer type or function (case-insensitive)
-            known_functions = {
-                'Conv2D', 'MaxPool2D', 'UpSampling2D', 'GlobalAveragePooling2D',
-                'Dense', 'Flatten', 'Reshape', 'BatchNormalization', 'Activation',
-                'Add', 'Concatenate', 'ElementwiseMultiply', 'Multiply',
-                'LSTM', 'GRU', 'Zeros', 'RandomNormal', 'Exp',
-                'CUSTOM'
+            known_functions_lower = {
+                'conv2d', 'maxpool2d', 'upsampling2d', 'globalaveragepooling2d',
+                'dense', 'flatten', 'reshape', 'batchnormalization', 'activation',
+                'add', 'concatenate', 'elementwise multiply', 'multiply',
+                'lstm', 'gru', 'zeros', 'randomnormal', 'exp',
+                'custom'
             }
-            known_functions_lower = {f.lower() for f in known_functions}
 
             if func_name.lower() in known_functions_lower:
                 return self.parse_function_call(func_name)
@@ -358,7 +400,52 @@ class Parser:
 
     def parse_function_call(self, name: str):
         """Parse a function call: name(args, kwargs)"""
-        self.expect('IDENTIFIER')  # Consume the function name we already peeked at
+        # Consume the function name token (can be IDENTIFIER or specific function type)
+        if self.current_token:
+            if self.current_token[0] == 'IDENTIFIER':
+                # Function name is an identifier (e.g., "DENSE" all caps)
+                actual_name = self.current_token[1]
+                if actual_name.lower() != name.lower():
+                    raise SyntaxError(f'Expected function name {name}, got {actual_name}')
+                self.expect('IDENTIFIER')
+            elif self.current_token[0] in {
+                'CONV2D', 'MAXPOOL2D', 'UPSAMPLING2D', 'GLOBALAVERAGEPOOLING2D',
+                'DENSE', 'FLATTEN', 'RESHAPE', 'BATCHNORMALIZATION', 'ACTIVATION',
+                'ADD', 'CONCATENATE', 'ELEMENTWISEMULTIPLY', 'MULTIPLY',
+                'LSTM', 'GRU', 'ZEROS', 'RANDOMNORMAL', 'EXP',
+                'CUSTOM'
+            }:
+                # Function name is a specific function type token (e.g., "Dense")
+                actual_name = self.current_token[1]
+                expected_name_map = {
+                    'CONV2D': 'Conv2D',
+                    'MAXPOOL2D': 'MaxPool2D',
+                    'UPSAMPLING2D': 'UpSampling2D',
+                    'GLOBALAVERAGEPOOLING2D': 'GlobalAveragePooling2D',
+                    'DENSE': 'Dense',
+                    'FLATTEN': 'Flatten',
+                    'RESHAPE': 'Reshape',
+                    'BATCHNORMALIZATION': 'BatchNormalization',
+                    'ACTIVATION': 'Activation',
+                    'ADD': 'Add',
+                    'CONCATENATE': 'Concatenate',
+                    'ELEMENTWISEMULTIPLY': 'ElementwiseMultiply',
+                    'MULTIPLY': 'Multiply',
+                    'LSTM': 'LSTM',
+                    'GRU': 'GRU',
+                    'ZEROS': 'Zeros',
+                    'RANDOMNORMAL': 'RandomNormal',
+                    'EXP': 'Exp',
+                    'CUSTOM': 'CUSTOM'
+                }
+                expected_name = expected_name_map.get(self.current_token[0])
+                if expected_name and expected_name.lower() != name.lower():
+                    raise SyntaxError(f'Expected function name {name}, got {actual_name}')
+                self.advance()
+            else:
+                raise SyntaxError(f'Expected identifier or function type, got {self.current_token}')
+        else:
+            raise SyntaxError(f'Expected function name {name}, got nothing')
 
         self.expect('LPAREN')
 
@@ -414,7 +501,13 @@ class Parser:
         if self.current_token:
             if self.current_token[0] == 'STRING':
                 str_token = self.expect('STRING')
-                return String(value=str_token[1].strip('"'))
+                # Strip both double and single quotes
+                value = str_token[1]
+                if value.startswith('"') and value.endswith('"'):
+                    value = value[1:-1]
+                elif value.startswith("'") and value.endswith("'"):
+                    value = value[1:-1]
+                return String(value=value)
             elif self.current_token[0] == 'NUMBER':
                 num_token = self.expect('NUMBER')
                 value = int(num_token[1]) if '.' not in num_token[1] else float(num_token[1])
