@@ -1,0 +1,58 @@
+# S4 (State Space Sequence Model) example
+
+MODEL s4_example
+    # Input sequence: shape (sequence_length, input_dim)
+    INPUT(shape=(None, None), name='input_sequence')  # Variable length sequence
+
+    # For demonstration, we'll show processing with a fixed length
+    # In practice, this would handle variable-length sequences
+
+    # Initialize state (would typically be zeros)
+    # Note: State initialization would need to be handled appropriately
+    state = Zeros(shape=(state_size,))  # Conceptual - actual implementation may vary
+
+    # Process sequence step by step
+    # This conceptual loop shows how S4 steps would be applied
+    # In actual implementation, this might use a specialized sequence processing construct
+    state_output_sequence = []  # Conceptual - to collect outputs
+
+    # For each time step in the input sequence:
+    #   step_input = input_sequence[t]
+    #   [state, step_output] = s4_step([state, step_input])
+    #   state_output_sequence.append(step_output)
+
+    # Since we don't have explicit sequence iteration syntax shown in samples yet,
+    # we'll demonstrate the concept with a fixed-length example using REPEAT
+    # (assuming we know the sequence length or can determine it)
+
+    # Example with fixed sequence length of 5 for demonstration:
+    x = INPUT  # Start with input sequence (conceptual)
+    REPEAT 5 times:  # Conceptual - would iterate over actual sequence length
+        # Extract current time step input (conceptual)
+        # step_input = x[t]  # Would need sequence indexing
+
+        # Apply S4 step: takes [state, input], returns [next_state, output]
+        s4_step_result = CUSTOM([state, INPUT],  # Conceptual input handling
+                              equation="s4.eq",
+                              state_size=64,
+                              input_size=32,
+                              output_size=32,
+                              name=f's4_step_{_}')  # Conceptual - actual naming may vary
+
+        # Split result into state and output (conceptual)
+        # state = s4_step_result[0:state_size]
+        # step_output = s4_step_result[state_size:state_size+output_size]
+
+        # Update state for next iteration
+        # state = state  # Updated by the CUSTOM call in actual implementation
+
+        # Collect output (conceptual)
+        # state_output_sequence.append(step_output)
+    END
+
+    # Process collected output sequence (conceptual)
+    # For example, we might take the last output, average, or apply another layer
+    final_output = Dense([state_output_sequence[-1]], units=10, activation='softmax', name='final_output')
+
+    OUTPUT = final_output
+END

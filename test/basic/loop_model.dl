@@ -1,0 +1,8 @@
+MODEL loop_model
+    INPUT(shape=(64,), name='input')
+    x = INPUT
+    REPEAT 3 times:
+        x = Dense([x], units=64, activation='relu', name='shared_dense')
+    END
+    OUTPUT = Dense([x], units=10, activation='softmax', name='output')
+END

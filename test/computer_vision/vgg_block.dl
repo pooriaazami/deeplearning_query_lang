@@ -1,0 +1,32 @@
+# VGG-like model showing parameterizable blocks and naming with prefixing
+
+# Define a reusable VGG block: two conv layers with same parameters
+BLOCK vgg_block(filters, kernel_size, input_name, prefix='')
+    INPUT(name=input_name)
+    conv1 = Conv2D([INPUT], filters=filters, kernel_size=kernel_size, activation='relu', padding='same', name=prefix+'conv1')
+    conv2 = Conv2D([conv1], filters=filters, kernel_size=kernel_size, activation='relu', padding='same', name=prefix+'conv2')
+    OUTPUT = conv2
+END
+
+MODEL vgg_like
+    INPUT(shape=(224,224,3), name='input')
+
+    # First block: 64 filters
+    block1_out = vgg_block(filters=64, kernel_size=3, input_name='input', prefix='block1_')
+    pool1 = MaxPool2D([block1_out], pool_size=2, strides=2, name='pool1')
+
+    # Second block: 128 filters
+    block2_out = vgg_block(filters=128, kernel_size=3, input_name=block1_out, prefix='block2_')
+    pool2 = MaxPool2D([block2_out], pool_size=2, strides=2, name='pool2')
+
+    # Third block: 256 filters with an extra conv layer
+    block3_out = vgg_block(filters=256, kernel_size=3, input_name=block2_out, prefix='block3_')
+    conv_extra = Conv2D([block3_out], filters=256, kernel_size=3, activation='relu', padding='same', name=prefix+'conv_extra')
+    pool3 = MaxPool2D([conv_extra], pool_size=2, strides=2, name='pool3')
+
+    # Classifier
+    flat = Flatten([pool3], name='flatten')
+    fc1 = Dense([flat], units=4096, activation='relu', name='fc1')
+    fc2 = Dense([fc1], units=4096, activation='relu', name='fc2')
+    OUTPUT = Dense([fc2], units=1000, activation='softmax', name='predictions')
+END

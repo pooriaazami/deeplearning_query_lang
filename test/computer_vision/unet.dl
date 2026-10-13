@@ -1,0 +1,49 @@
+# U-Net model for image segmentation
+
+# Down-sampling block: two conv layers (each with ReLU)
+BLOCK down_block(filters, input_name, prefix='')
+    INPUT(name=input_name)
+    conv1 = Conv2D([INPUT], filters=filters, kernel_size=3, activation='relu', padding='same', name=prefix+'conv1')
+    conv2 = Conv2D([conv1], filters=filters, kernel_size=3, activation='relu', padding='same', name=prefix+'conv2')
+    OUTPUT = conv2
+END
+
+# Up-sampling block: upsample, concatenate with skip connection, then two conv layers
+BLOCK up_block(filters, upsample_name, skip_name, prefix='')
+    inp1 = INPUT(name=upsample_name)
+    inp2 = INPUT(name=skip_name)
+    upsampled = UpSampling2D([inp1], size=2)
+    conc = Concatenate([upsampled, inp2], name=prefix+'concat')
+    conv1 = Conv2D([conc], filters=filters, kernel_size=3, activation='relu', padding='same', name=prefix+'conv1')
+    conv2 = Conv2D([conv1], filters=filters, kernel_size=3, activation='relu', padding='same', name=prefix+'conv2')
+    OUTPUT = conv2
+END
+
+MODEL unet
+    INPUT(shape=(None, None, 1), name='input')
+
+    # Down path
+    dblock1_out = down_block(filters=64, input_name='input', prefix='enc1_')
+    p1 = MaxPool2D([dblock1_out], pool_size=2)
+
+    dblock2_out = down_block(filters=128, input_name='p1', prefix='enc2_')
+    p2 = MaxPool2D([dblock2_out], pool_size=2)
+
+    dblock3_out = down_block(filters=256, input_name=p2, prefix='enc3_')
+    p3 = MaxPool2D([dblock3_out], pool_size=2)
+
+    dblock4_out = down_block(filters=512, input_name=p3, prefix='enc4_')
+    p4 = MaxPool2D([dblock4_out], pool_size=2)
+
+    # Bottleneck
+    bottleneck_out = down_block(filters=1024, input_name=p4, prefix='bottleneck_')
+
+    # Up path
+    u4_out = up_block(filters=512, upsample_name='bottleneck_out', skip_name='dblock4_out', prefix='dec4_')
+    u3_out = up_block(filters=256, upsample_name='u4_out', skip_name='dblock3_out', prefix='dec3_')
+    u2_out = up_block(filters=128, upsample_name='u3_out', skip_name='dblock2_out', prefix='dec2_')
+    u1_out = up_block(filters=64, upsample_name='u2_out', skip_name='dblock1_out', prefix='dec1_')
+
+    # Output
+    OUTPUT = Conv2D([u1_out], filters=1, kernel_size=1, activation='sigmoid', name='output')
+END

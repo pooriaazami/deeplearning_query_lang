@@ -1,0 +1,47 @@
+# VAE (Variational AutoEncoder) Model
+# Combines encoder and decoder with reparameterization trick
+# Imports encoder and decoder models from separate files
+
+IMPORT "vae_encoder.dl"
+IMPORT "vae_decoder.dl"
+
+MODEL vae_model
+    # Input image: shape (height, width, channels)
+    # For example, a grayscale image might be (28, 28, 1)
+    INPUT(shape=(None, None, 1), name='input_image')
+
+    # Step 1: Run input through encoder to get latent parameters
+    # Uses the imported encoder model from vae_encoder.dl
+    latent_params = vae_encoder([input_image])
+    # latent_params contains [mu, logvar] concatenated
+
+    # Step 2: Split latent parameters into mu and logvar
+    # First half: mu, second half: logvar
+    # We would need to split the latent_params tensor
+    # Conceptually: mu = latent_params[0:latent_dim], logvar = latent_params[latent_dim:2*latent_dim]
+    mu = LatentParamsSlice([latent_params], start=0, end=latent_dim, name='mu_slice')
+    logvar = LatentParamsSlice([latent_params], start=latent_dim, end=2*latent_dim, name='logvar_slice')
+
+    # Step 3: Compute standard deviation from logvar
+    # sigma = exp(0.5 * logvar)
+    half_logvar = Multiply([logvar], 0.5, name='half_logvar')
+    sigma = Exp([half_logvar], name='sigma')
+
+    # Step 4: Sample epsilon from standard normal distribution
+    # epsilon ~ N(0, 1)
+    epsilon = RandomNormal(shape=(latent_dim,), name='epsilon_sample')
+
+    # Step 5: Reparameterization trick: z = mu + sigma * epsilon
+    # z = mu + sigma * epsilon
+    sigma_epsilon = ElementwiseMultiply([sigma, epsilon], name='sigma_epsilon')
+    z = Add([mu, sigma_epsilon], name='latent_z')
+
+    # Step 6: Run latent z through decoder to get reconstruction
+    # Uses the imported decoder model from vae_decoder.dl
+    reconstruction = vae_decoder([z])
+
+    # Step 7: Output the reconstruction (and optionally mu, logvar for loss computation)
+    # For simplicity, we'll output the reconstructed image
+    # In practice, we would reshape and apply final activation to get image in [0,1] range
+    OUTPUT = reconstruction
+END

@@ -1,0 +1,73 @@
+# ResNet-50 model
+
+# Bottleneck block definition
+BLOCK bottleneck_block(main_input_name, shortcut_input_name, out_filters, stride, prefix='')
+    MAIN_INPUT = INPUT(name=main_input_name)
+    SHORTCUT_INPUT = INPUT(name=shortcut_input_name)
+    # 1x1 reduce
+    conv1 = Conv2D([MAIN_INPUT], filters=out_filters//4, kernel_size=1, strides=stride, activation=None, name=prefix+'conv1')
+    bn1 = BatchNormalization([conv1], name=prefix+'bn1')
+    relu1 = Activation([bn1], activation='relu', name=prefix+'relu1')
+    # 3x3
+    conv2 = Conv2D([conv1], filters=out_filters//4, kernel_size=3, strides=1, activation=None, padding='same', name=prefix+'conv2')
+    bn2 = BatchNormalization([conv2], name=prefix+'bn2')
+    relu2 = Activation([bn2], activation='relu', name=prefix+'relu2')
+    # 1x1 increase
+    conv3 = Conv2D([conv2], filters=out_filters, kernel_size=1, strides=1, activation=None, name=prefix+'conv3')
+    bn3 = BatchNormalization([conv3], name=prefix+'bn3')
+    # Add main path and shortcut (shortcut already provided)
+    added = Add([bn3, SHORTCUT_INPUT], name=prefix+'add')
+    # Final activation
+    output = Activation([added], activation='relu', name=prefix+'output')
+    OUTPUT = output
+END
+
+MODEL resnet50
+    # Initial layers
+    INPUT(shape=(None, None, 3), name='input')
+    conv1 = Conv2D([INPUT], filters=64, kernel_size=7, strides=2, activation=None, name='conv1')
+    bn1 = BatchNormalization([conv1], name='bn1')
+    relu1 = Activation([bn1], activation='relu', name='relu1')
+    pool1 = MaxPool2D([relu1], pool_size=3, strides=2, name='pool1')
+
+    # Stage 1: 3 blocks, out_filters=256, stride=1 (first block)
+    # Input from pool1: 64 channels
+    shortcut2a = Conv2D([pool1], filters=256, kernel_size=1, strides=1, activation=None, name='shortcut2a')
+    bn_shortcut2a = BatchNormalization([shortcut2a], name='bn_shortcut2a')
+    res2a = bottleneck_block(main_input_name='pool1', shortcut_input_name=bn_shortcut2a, out_filters=256, stride=1, prefix='res2a_')
+    res2b = bottleneck_block(main_input_name=res2a, shortcut_input_name=res2a, out_filters=256, stride=1, prefix='res2b_')
+    res2c = bottleneck_block(main_input_name=res2b, shortcut_input_name=res2b, out_filters=256, stride=1, prefix='res2c_')
+
+    # Stage 2: 4 blocks, out_filters=512, first block stride=2
+    # Input from res2c: 256 channels
+    shortcut3a = Conv2D([res2c], filters=512, kernel_size=1, strides=2, activation=None, name='shortcut3a')
+    bn_shortcut3a = BatchNormalization([shortcut3a], name='bn_shortcut3a')
+    res3a = bottleneck_block(main_input_name=res2c, shortcut_input_name=bn_shortcut3a, out_filters=512, stride=2, prefix='res3a_')
+    res3b = bottleneck_block(main_input_name=res3a, shortcut_input_name=res3a, out_filters=512, stride=1, prefix='res3b_')
+    res3c = bottleneck_block(main_input_name=res3b, shortcut_input_name=res3b, out_filters=512, stride=1, prefix='res3c_')
+    res3d = bottleneck_block(main_input_name=res3c, shortcut_input_name=res3c, out_filters=512, stride=1, prefix='res3d_')
+
+    # Stage 3: 6 blocks, out_filters=1024, first block stride=2
+    # Input from res3d: 512 channels
+    shortcut4a = Conv2D([res3d], filters=1024, kernel_size=1, strides=2, activation=None, name='shortcut4a')
+    bn_shortcut4a = BatchNormalization([shortcut4a], name='bn_shortcut4a')
+    res4a = bottleneck_block(main_input_name=res3d, shortcut_input_name=bn_shortcut4a, out_filters=1024, stride=2, prefix='res4a_')
+    res4b = bottleneck_block(main_input_name=res4a, shortcut_input_name=res4a, out_filters=1024, stride=1, prefix='res4b_')
+    res4c = bottleneck_block(main_input_name=res4b, shortcut_input_name=res4b, out_filters=1024, stride=1, prefix='res4c_')
+    res4d = bottleneck_block(main_input_name=res4c, shortcut_input_name=res4c, out_filters=1024, stride=1, prefix='res4d_')
+    res4e = bottleneck_block(main_input_name=res4d, shortcut_input_name=res4d, out_filters=1024, stride=1, prefix='res4e_')
+    res4f = bottleneck_block(main_input_name=res4e, shortcut_input_name=res4e, out_filters=1024, stride=1, prefix='res4f_')
+
+    # Stage 4: 3 blocks, out_filters=2048, first block stride=2
+    # Input from res4f: 1024 channels
+    shortcut5a = Conv2D([res4f], filters=2048, kernel_size=1, strides=2, activation=None, name='shortcut5a')
+    bn_shortcut5a = BatchNormalization([shortcut5a], name='bn_shortcut5a')
+    res5a = bottleneck_block(main_input_name=res4f, shortcut_input_name=bn_shortcut5a, out_filters=2048, stride=2, prefix='res5a_')
+    res5b = bottleneck_block(main_input_name=res5a, shortcut_input_name=res5a, out_filters=2048, stride=1, prefix='res5b_')
+    res5c = bottleneck_block(main_input_name=res5b, shortcut_input_name=res5b, out_filters=2048, stride=1, prefix='res5c_')
+
+    # Final layers
+    avgpool = GlobalAveragePooling2D([res5c], name='avgpool')
+    fc = Dense([avgpool], filters=1000, activation=None, name='fc')
+    OUTPUT = Activation([fc], activation='softmax', name='output')
+END

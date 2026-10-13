@@ -1,0 +1,17 @@
+# MNIST model definition showing naming and reusable blocks
+
+# Define a reusable block for dense layer with batch norm and dropout
+BLOCK dense_block(units, dropout_rate, input_name, prefix='')
+    INPUT(name=input_name)
+    dense = Dense([INPUT], units=units, activation='relu', name=prefix+'dense')
+    batchnorm = BatchNormalization([dense], name=prefix+'batchnorm')
+    dropout = Dropout([batchnorm], rate=dropout_rate, name=prefix+'dropout')
+    OUTPUT = dropout
+END
+
+MODEL mnist_mlp
+    INPUT(shape=(784,), name='input')
+    block1_out = dense_block(units=256, dropout_rate=0.3, input_name='input', prefix='block1_')
+    block2_out = dense_block(units=256, dropout_rate=0.3, input_name=block1_out, prefix='block2_')
+    OUTPUT = Dense([block2_out], units=10, activation='softmax', name='output')
+END

@@ -1,0 +1,29 @@
+# VAE Decoder Model
+# Maps latent space point to reconstructed input
+
+MODEL vae_decoder
+    # Input latent vector: shape (latent_dim,)
+    INPUT(shape=(latent_dim,), name='latent_input')
+
+    # Decoder network
+    # First, expand to a suitable shape for reshaping
+    dense = Dense([INPUT], units=7*7*64, activation='relu', name='dense')
+    # Reshape to (7, 7, 64) - assuming we started with 28x28 images
+    # After two poolings of size 2, we go from 28->14->7
+    reshaped = Reshape([dense], target_shape=(7, 7, 64), name='reshape')
+
+    # Decoder blocks (transpose of encoder)
+    # Block 1: 64 filters
+    conv1 = Conv2D([reshaped], filters=64, kernel_size=3, activation='relu', padding='same', name='conv1_d')
+    upsample1 = UpSampling2D([conv1], size=2, name='upsample1')
+
+    # Block 2: 32 filters
+    conv2 = Conv2D([upsample1], filters=32, kernel_size=3, activation='relu', padding='same', name='conv2_d')
+    upsample2 = UpSampling2D([conv2], size=2, name='upsample2')
+
+    # Block 3: 1 output channel (grayscale image)
+    conv3 = Conv2D([upsample2], filters=1, kernel_size=3, activation='sigmoid', padding='same', name='conv3_d')
+    # Sigmoid activation to get output in [0,1] range for image reconstruction
+
+    OUTPUT = conv3
+END

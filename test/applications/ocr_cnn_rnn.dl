@@ -1,0 +1,44 @@
+# OCR (Optical Character Recognition) CNN-RNN Model
+# Processes input image with CNN, then runs LSTM on CNN embeddings
+
+MODEL ocr_cnn_rnn
+    # Input image: shape (height, width, channels)
+    # For example, a grayscale text image might be (32, 128, 1)
+    INPUT(shape=(None, None, 1), name='input_image')
+
+    # CNN feature extractor
+    # Block 1: 32 filters
+    conv1 = Conv2D([INPUT], filters=32, kernel_size=3, activation='relu', padding='same', name='conv1')
+    pool1 = MaxPool2D([conv1], pool_size=2, strides=2, name='pool1')
+
+    # Block 2: 64 filters
+    conv2 = Conv2D([pool1], filters=64, kernel_size=3, activation='relu', padding='same', name='conv2')
+    pool2 = MaxPool2D([conv2], pool_size=2, strides=2, name='pool2')
+
+    # Block 3: 128 filters
+    conv3 = Conv2D([pool2], filters=128, kernel_size=3, activation='relu', padding='same', name='conv3')
+    pool3 = MaxPool2D([conv3], pool_size=2, strides=2, name='pool3')
+
+    # Block 4: 256 filters
+    conv4 = Conv2D([pool3], filters=256, kernel_size=3, activation='relu', padding='same', name='conv4')
+
+    # Global average pooling over height to get sequence of feature vectors
+    # Each width position becomes a "time step" with 256-dim features
+    gap = GlobalAveragePooling2D([conv4], data_format='channels_last', name='gap')
+    # After GAP, we have shape (W/8, 256) - a sequence of 256-dim vectors
+
+    # Process sequence with LSTM
+    # Returns sequence of outputs (one per time step)
+    lstm_seq = LSTM([gap], hidden_size=256, return_sequences=True, name='lstm')
+
+    # For character recognition, we predict a character for each time step
+    # Apply dense layer to each LSTM output in the sequence
+    # In practice, this would be applied to each time step's output
+    # For demonstration, we show the concept - actual implementation would
+    # handle sequence-wise application of the dense layer
+    char_features = Dense([lstm_seq], units=512, activation='relu', name='char_features')
+    num_classes = 37  # Example: 26 letters + 10 digits + blank
+    predictions = Dense([char_features], units=num_classes, activation='softmax', name='predictions')
+
+    OUTPUT = predictions
+END

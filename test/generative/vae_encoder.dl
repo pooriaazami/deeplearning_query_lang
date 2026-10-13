@@ -1,0 +1,30 @@
+# VAE Encoder Model
+# Maps input to latent space parameters (mu and logvar)
+
+MODEL vae_encoder
+    # Input image: shape (height, width, channels)
+    # For example, a grayscale image might be (28, 28, 1)
+    INPUT(shape=(None, None, 1), name='input_image')
+
+    # Encoder network
+    # Block 1: 32 filters
+    conv1 = Conv2D([INPUT], filters=32, kernel_size=3, activation='relu', padding='same', name='conv1')
+    pool1 = MaxPool2D([conv1], pool_size=2, strides=2, name='pool1')
+
+    # Block 2: 64 filters
+    conv2 = Conv2D([pool1], filters=64, kernel_size=3, activation='relu', padding='same', name='conv2')
+    pool2 = MaxPool2D([conv2], pool_size=2, strides=2, name='pool2')
+
+    # Block 3: 128 filters
+    conv3 = Conv2D([pool2], filters=128, kernel_size=3, activation='relu', padding='same', name='conv3')
+    pool3 = MaxPool2D([conv3], pool_size=2, strides=2, name='pool3')
+
+    # Flatten the output to get a feature vector
+    flat = Flatten([pool3], name='flatten')
+
+    # Output mu and logvar concatenated
+    # First half: mu, second half: logvar
+    latent_params = Dense([flat], units=2*latent_dim, activation=None, name='latent_params')
+
+    OUTPUT = latent_params
+END

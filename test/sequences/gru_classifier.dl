@@ -1,0 +1,29 @@
+# GRU-based Classifier
+# Classifies sequences using a Gated Recurrent Unit (GRU) layer
+
+MODEL gru_classifier
+    # Input sequence: shape (sequence_length, input_features)
+    # For example, text embeddings might be (100, 300) for 100-word sequences with 300-dim embeddings
+    INPUT(shape=(None, None), name='input_sequence')
+
+    # Optional: Embedding layer if input is indices (not shown here - assuming pre-computed embeddings)
+    # For text classification with word indices, you might start with:
+    # embedded = Embedding([INPUT], vocab_size=10000, embed_dim=300, name='embedding')
+
+    # GRU layer for sequence processing
+    # return_sequences=False to get only the final hidden state for classification
+    gru_out = GRU([INPUT], hidden_size=128, return_sequences=False, name='gru')
+
+    # Optional: Dropout for regularization
+    # dropout = Dropout([gru_out], rate=0.5, name='dropout')
+
+    # Classification layers
+    dense1 = Dense([gru_out], units=64, activation='relu', name='dense1')
+    # dropout2 = Dropout([dense1], rate=0.5, name='dropout2')  # Optional
+
+    # Output layer with softmax for multi-class classification
+    num_classes = 10  # Example: 10 classes
+    predictions = Dense([dense1], units=num_classes, activation='softmax', name='predictions')
+
+    OUTPUT = predictions
+END

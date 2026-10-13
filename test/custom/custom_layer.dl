@@ -1,0 +1,5 @@
+MODEL custom_layer_example
+    INPUT(shape=(20,), name='input')
+    my_custom = CUSTOM([input], equation="linear_relu.eq", input_size=20, hidden_size=50, output_size=10, name='my_custom_layer')
+    OUTPUT = my_custom
+END

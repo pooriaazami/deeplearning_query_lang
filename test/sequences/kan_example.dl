@@ -1,0 +1,15 @@
+# KAN (Kolmogorov-Arnold Network) example
+
+MODEL kan_example
+    # Define input and output dimensions
+    INPUT(shape=(10,), name='input')  # 10-dimensional input
+
+    # Apply KAN layer with 5 output dimensions
+    # Note: Custom layers are implemented using the CUSTOM keyword with an equation file
+    kan1 = CUSTOM([INPUT], equation="kan_layer.eq", input_size=10, output_size=5, name='kan_layer_1')
+
+    # Apply another KAN layer for final output
+    kan2 = CUSTOM([kan1], equation="kan_layer.eq", input_size=5, output_size=1, name='kan_layer_2')
+
+    OUTPUT = kan2
+END
