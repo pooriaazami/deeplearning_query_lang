@@ -139,3 +139,6 @@ generated/
 
 FEATURES.md
 PROJECT_CHECKLIST.md
+
+dl-scheduler/*
+research-tracker/*
