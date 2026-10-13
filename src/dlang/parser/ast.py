@@ -1,69 +1,77 @@
 # Abstract Syntax Tree nodes for the Deep Learning Description Language
 
 class Node:
-    pass
+    def __init__(self):
+        pass
 
 class Model(Node):
-    def __init__(self, name, layers=None, inputs=None, outputs=None):
+    def __init__(self, name, inputs=None, outputs=None, layers=None, imports=None):
         self.name = name
-        self.layers = layers or []
-        self.inputs = inputs or []
-        self.outputs = outputs or []
+        self.inputs = inputs or []  # List of Input nodes
+        self.outputs = outputs or []  # List of Output nodes
+        self.layers = layers or []  # List of layer statements
+        self.imports = imports or []  # List of imported files
+
+class Input(Node):
+    def __init__(self, shape, name):
+        self.shape = shape  # Tuple of dimensions, e.g., (None, None, 1)
+        self.name = name  # Variable name for the input tensor
+
+class Output(Node):
+    def __init__(self, source):
+        self.source = source  # Variable name of the output tensor
 
 class Layer(Node):
-    def __init__(self, name, type, parameters=None):
-        self.name = name
-        self.type = type
-        self.parameters = parameters or {}
+    def __init__(self, name, type, inputs, parameters=None):
+        self.name = name  # Variable name for this layer
+        self.type = type  # Layer type (e.g., 'Conv2D', 'Dense')
+        self.inputs = inputs or []  # List of input tensors/variables
+        self.parameters = parameters or {}  # Layer parameters (filters, kernel_size, etc.)
 
 class Block(Node):
-    def __init__(self, name, layers=None, parameters=None):
-        self.name = name
-        self.layers = layers or []
-        self.parameters = parameters or {}
+    def __init__(self, name, inputs=None, outputs=None, layers=None, parameters=None):
+        self.name = name  # Block name
+        self.inputs = inputs or []  # Input parameter names
+        self.outputs = outputs or []  # Output parameter names
+        self.layers = layers or []  # Layers within the block
+        self.parameters = parameters or {}  # Block parameters
 
-class Dataset(Node):
-    def __init__(self, name, source, preprocessing=None, split=None):
-        self.name = name
-        self.source = source
-        self.preprocessing = preprocessing or []
-        self.split = split or {}
+class Import(Node):
+    def __init__(self, filepath):
+        self.filepath = filepath  # Path to imported .dl file
 
-class PreprocessingStep(Node):
-    def __init__(self, type, parameters=None):
-        self.type = type
-        self.parameters = parameters or {}
+class Repeat(Node):
+    def __init__(self, count, body):
+        self.count = count  # Number of repetitions
+        self.body = body  # List of statements to repeat
 
-class Split(Node):
-    def __init__(self, type, ratio=None, seed=None):
-        self.type = type  # 'random', 'stratified', 'timeseries'
-        self.ratio = ratio
-        self.seed = seed
+class CustomLayer(Node):
+    def __init__(self, name, inputs, equation_file, parameters=None):
+        self.name = name  # Variable name for this custom layer
+        self.inputs = inputs or []  # Input tensors
+        self.equation_file = equation_file  # Path to equation file
+        self.parameters = parameters or {}  # Parameters for the custom layer
 
-class TrainingConfig(Node):
-    def __init__(self, optimizer=None, loss=None, metrics=None, epochs=None, batch_size=None):
-        self.optimizer = optimizer
-        self.loss = loss
-        self.metrics = metrics or []
-        self.epochs = epochs
-        self.batch_size = batch_size
+# Additional nodes for expressions and operations
+class Assignment(Node):
+    def __init__(self, target, expression):
+        self.target = target  # Target variable name
+        self.expression = expression  # Expression to assign
 
-class Optimizer(Node):
-    def __init__(self, type, parameters=None):
-        self.type = type
-        self.parameters = parameters or {}
+class Variable(Node):
+    def __init__(self, name):
+        self.name = name  # Variable name
 
-class Loss(Node):
-    def __init__(self, type, parameters=None):
-        self.type = type
-        self.parameters = parameters or {}
+class FunctionCall(Node):
+    def __init__(self, name, args=None, kwargs=None):
+        self.name = name  # Function name
+        self.args = args or []  # Positional arguments
+        self.kwargs = kwargs or {}  # Keyword arguments
 
-class Metric(Node):
-    def __init__(self, type, parameters=None):
-        self.type = type
-        self.parameters = parameters or {}
+class Number(Node):
+    def __init__(self, value):
+        self.value = value  # Numeric value
 
-class Logger(Node):
-    def __init__(self, type, parameters=None):
-        self.type = type
-        self.parameters = parameters or {}
+class String(Node):
+    def __init__(self, value):
+        self.value = value  # String value
