@@ -21,10 +21,15 @@ setup(
     ],
     python_requires=">=3.6",
     install_requires=[
-        # List your dependencies here
-        # For example: 'numpy', 'torch', etc.
-        # We'll keep it minimal for now and let the user install backend-specific dependencies.
+        # Core dependencies (none required for the parser/codegen)
+        # Backend-specific dependencies are available as extras:
+        #   pip install .[pytorch]
+        #   pip install .[tensorflow]
     ],
+    extras_require={
+        'pytorch': ['torch'],
+        'tensorflow': ['tensorflow'],
+    },
     entry_points={
         'console_scripts': [
             'dlang=dlang.cli.main:main',

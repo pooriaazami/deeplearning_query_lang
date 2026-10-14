@@ -1,3 +1,4 @@
 # Dependencies for Deep Learning Description Language
-# Core dependencies
-# Add backend-specific dependencies as needed (e.g., torch, tensorflow, jax)
+# To install with PyTorch support: pip install .[pytorch]
+# To install with TensorFlow support: pip install .[tensorflow]
+# For development: pip install -e .
