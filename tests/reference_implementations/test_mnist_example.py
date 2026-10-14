@@ -56,7 +56,7 @@ class TestMnistExample(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures before each test method."""
-        self.dl_file_path = "test/computer_vision/mnist_example.dl"
+        self.dl_file_path = "test_cases/computer_vision/mnist_example.dl"
         self.reference_model = MnistModelReference()
         self.reference_model.eval()
 

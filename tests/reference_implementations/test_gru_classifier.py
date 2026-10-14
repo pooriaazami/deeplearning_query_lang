@@ -61,7 +61,7 @@ class TestGRUClassifier(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures before each test method."""
-        self.dl_file_path = "test/sequences/gru_classifier.dl"
+        self.dl_file_path = "test_cases/sequences/gru_classifier.dl"
         self.reference_model = GRUClassifierReference()
         self.reference_model.eval()
 

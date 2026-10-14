@@ -36,7 +36,7 @@ class TestSimpleModel(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures before each test method."""
-        self.dl_file_path = "test/basic/simple_model.dl"
+        self.dl_file_path = "test_cases/basic/simple_model.dl"
         self.reference_model = SimpleModelReference()
         self.reference_model.eval()
 

@@ -50,7 +50,7 @@ class TestFunctionalModel(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures before each test method."""
-        self.dl_file_path = "test/basic/functional_model.dl"
+        self.dl_file_path = "test_cases/basic/functional_model.dl"
         self.reference_model = FunctionalModelReference()
         self.reference_model.eval()
 

@@ -41,7 +41,7 @@ class TestLoopModel(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures before each test method."""
-        self.dl_file_path = "test/basic/loop_model.dl"
+        self.dl_file_path = "test_cases/basic/loop_model.dl"
         self.reference_model = LoopModelReference()
         self.reference_model.eval()
 
