@@ -270,14 +270,25 @@ class PyTorchBackend:
         func_name_upper = func_name.upper()
         mapping = {
             'DENSE': 'Linear',
+            'CONV1D': 'Conv1d',
             'CONV2D': 'Conv2d',
+            'CONV3D': 'Conv3d',
             'GRU': 'GRU',
             'LSTM': 'LSTM',
             'DROPOUT': 'Dropout',
             'BATCHNORM': 'BatchNorm1d',
+            'MAXPOOL1D': 'MaxPool1d',
             'MAXPOOL2D': 'MaxPool2d',
+            'MAXPOOL3D': 'MaxPool3d',
+            'AVGPOOL1D': 'AvgPool1d',
             'AVGPOOL2D': 'AvgPool2d',
-            # Add more mappings as needed
+            'AVGPOOL3D': 'AvgPool3d',
+            'GLOBALAVERAGEPOOLING1D': 'GlobalAvgPool1d',
+            'GLOBALAVERAGEPOOLING2D': 'GlobalAvgPool2d',
+            'GLOBALAVERAGEPOOLING3D': 'GlobalAvgPool3d',
+            'GLOBALMAXPOOLING1D': 'GlobalMaxPool1d',
+            'GLOBALMAXPOOLING2D': 'GlobalMaxPool2d',
+            'GLOBALMAXPOOLING3D': 'GlobalMaxPool3d',
         }
         return mapping.get(func_name_upper, func_name)  # Default to original name if not found
 

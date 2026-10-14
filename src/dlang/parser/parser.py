@@ -479,7 +479,14 @@ class Parser:
             'DENSE', 'FLATTEN', 'RESHAPE', 'BATCHNORMALIZATION', 'ACTIVATION',
             'ADD', 'CONCATENATE', 'ELEMENTWISEMULTIPLY', 'MULTIPLY',
             'LSTM', 'GRU', 'ZEROS', 'RANDOMNORMAL', 'EXP',
-            'CUSTOM'
+            'CUSTOM',
+            'CONV1D', 'CONV3D', 'RNN', 'EMBEDDING', 'DROPOUT',
+            'LAYERNORMALIZATION',
+            'AVERAGEPOOL1D', 'AVERAGEPOOL2D', 'AVERAGEPOOL3D',
+            'GLOBALAVERAGEPOOLING1D', 'GLOBALAVERAGEPOOLING2D', 'GLOBALAVERAGEPOOLING3D',
+            'GLOBALMAXPOOLING1D', 'GLOBALMAXPOOLING2D', 'GLOBALMAXPOOLING3D',
+            'MAXPOOL1D', 'MAXPOOL3D',
+            'SUBTRACT',
         }
 
         if self.current_token[0] in known_function_types:

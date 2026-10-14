@@ -64,6 +64,23 @@ TOKEN_SPECS = [
     ('NEWLINE', r'\n'),
     ('SKIP', r'[ \t]+'),  # Skip spaces and tabs
     ('MISMATCH', r'.'),   # Any other character
+    ('CONV1D', r'Conv1D'),
+    ('CONV3D', r'Conv3D'),
+    ('RNN', r'RNN'),
+    ('EMBEDDING', r'Embedding'),
+    ('DROPOUT', r'Dropout'),
+    ('LAYERNORMALIZATION', r'LayerNormalization'),
+    ('AVERAGEPOOL1D', r'AveragePool1D'),
+    ('AVERAGEPOOL2D', r'AveragePool2D'),
+    ('AVERAGEPOOL3D', r'AveragePool3D'),
+    ('GLOBALAVERAGEPOOLING1D', r'GlobalAveragePooling1D'),
+    ('GLOBALAVERAGEPOOLING3D', r'GlobalAveragePooling3D'),
+    ('GLOBALMAXPOOLING1D', r'GlobalMaxPooling1D'),
+    ('GLOBALMAXPOOLING2D', r'GlobalMaxPooling2D'),
+    ('GLOBALMAXPOOLING3D', r'GlobalMaxPooling3D'),
+    ('MAXPOOL1D', r'MaxPool1D'),
+    ('MAXPOOL3D', r'MaxPool3D'),
+    ('SUBTRACT', r'Subtract'),
 ]
 
 # Compile regex patterns
