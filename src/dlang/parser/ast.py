@@ -5,12 +5,13 @@ class Node:
         pass
 
 class Model(Node):
-    def __init__(self, name, inputs=None, outputs=None, layers=None, imports=None):
+    def __init__(self, name, inputs=None, outputs=None, layers=None, imports=None, blocks=None):
         self.name = name
         self.inputs = inputs or []  # List of Input nodes
         self.outputs = outputs or []  # List of Output nodes
         self.layers = layers or []  # List of layer statements
         self.imports = imports or []  # List of imported files
+        self.blocks = blocks or []  # List of top-level Block nodes
 
 class Input(Node):
     def __init__(self, shape, name):
@@ -75,3 +76,13 @@ class Number(Node):
 class String(Node):
     def __init__(self, value):
         self.value = value  # String value
+
+class Boolean(Node):
+    def __init__(self, value):
+        self.value = value  # Boolean value
+
+class BinaryOperation(Node):
+    def __init__(self, op, left, right):
+        self.op = op  # Operator as string, e.g., 'PLUS', 'MINUS'
+        self.left = left  # Left expression
+        self.right = right  # Right expression

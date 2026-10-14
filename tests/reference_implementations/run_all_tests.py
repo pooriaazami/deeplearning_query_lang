@@ -1,38 +1,51 @@
+#!/usr/bin/env python3
 """
-Test runner for all reference implementation tests using unittest discovery
+Test runner for all reference implementation tests.
+Discovers and runs all test files in the reference_implementations directory.
 """
-import subprocess
+import unittest
 import sys
 import os
-from pathlib import Path
 
+def run_all_tests():
+    """Discover and run all tests in the reference_implementations directory."""
+    # Get the directory containing this script
+    test_dir = os.path.dirname(os.path.abspath(__file__))
 
-def main():
-    """Run all tests in the reference_implementations directory using unittest discovery"""
-    test_dir = Path(__file__).parent
+    # Discover all test files (files starting with test_)
+    loader = unittest.TestLoader()
+    suite = loader.discover(test_dir, pattern='test_*.py')
 
-    # Run unittest discovery on the test directory
-    try:
-        result = subprocess.run(
-            [sys.executable, "-m", "unittest", "discover", str(test_dir), "-v"],
-            capture_output=True,
-            text=True,
-            timeout=60  # 60 second timeout for all tests
-        )
+    # Run the tests
+    runner = unittest.TextTestRunner(verbosity=2)
+    result = runner.run(suite)
 
-        print(result.stdout)
-        if result.stderr:
-            print("STDERR:", result.stderr)
+    # Print summary
+    print("\n" + "="*60)
+    print("TEST SUMMARY")
+    print("="*60)
+    print(f"Tests run: {result.testsRun}")
+    print(f"Failures: {len(result.failures)}")
+    print(f"Errors: {len(result.errors)}")
+    print(f"Skipped: {len(result.skipped) if hasattr(result, 'skipped') else 0}")
 
-        return result.returncode
+    if result.failures:
+        print("\nFAILURES:")
+        for test, traceback in result.failures:
+            print(f"- {test}: {traceback.splitlines()[-1] if traceback else 'Unknown'}")
 
-    except subprocess.TimeoutExpired:
-        print("Tests timed out after 60 seconds")
+    if result.errors:
+        print("\nERRORS:")
+        for test, traceback in result.errors:
+            print(f"- {test}: {traceback.splitlines()[-1] if traceback else 'Unknown'}")
+
+    # Return appropriate exit code
+    if result.wasSuccessful():
+        print("\n[PASS] All tests passed!")
+        return 0
+    else:
+        print("\n[FAIL] Some tests failed or had errors.")
         return 1
-    except Exception as e:
-        print(f"Error running tests: {e}")
-        return 1
 
-
-if __name__ == "__main__":
-    sys.exit(main())
+if __name__ == '__main__':
+    sys.exit(run_all_tests())

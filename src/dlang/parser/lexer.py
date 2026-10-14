@@ -40,9 +40,13 @@ TOKEN_SPECS = [
     # Literals
     ('STRING', r'"[^"]*"|\'[^\']*\''),  # Both double and single quoted strings
     ('NUMBER', r'\b\d+(\.\d+)?\b'),  # Integers and floats
+    ('BOOLEAN', r'\b(True|False)\b'),  # Boolean literals
 
     # Identifiers (variable names, function names, etc.)
     ('IDENTIFIER', r'\b[a-zA-Z_][a-zA-Z0-9_]*\b'),
+
+    # Comments
+    ('COMMENT', r'#.*'),  # Comments: from # to end of line
 
     # Delimiters and operators
     ('LPAREN', r'\('),
@@ -55,6 +59,8 @@ TOKEN_SPECS = [
     ('DOT', r'\.'),
     ('ASSIGN', r'='),
     ('COLON', r':'),
+    ('PLUS', r'\+'),  # Addition operator
+    ('MINUS', r'-'),  # Subtraction operator
     ('NEWLINE', r'\n'),
     ('SKIP', r'[ \t]+'),  # Skip spaces and tabs
     ('MISMATCH', r'.'),   # Any other character
@@ -90,8 +96,8 @@ def lex(text: str) -> List[Tuple[str, str]]:
         if token_type == 'NEWLINE':
             tokens.append((token_type, token_value))
             line_num += 1
-        elif token_type == 'SKIP':
-            pass  # Skip whitespace
+        elif token_type in ('SKIP', 'COMMENT'):
+            pass  # Skip whitespace and comments
         elif token_type == 'MISMATCH':
             raise RuntimeError(f'Unexpected token {token_value} at line {line_num}')
         else:

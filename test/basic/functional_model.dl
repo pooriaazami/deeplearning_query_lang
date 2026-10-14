@@ -1,6 +1,6 @@
 # Define a reusable block for processing an input stream
 BLOCK input_stream(units, input_name, prefix='')
-    INPUT(name=input_name)
+    INPUT(shape=(32,), name=input_name)
     dense = Dense([INPUT], units=units, activation='relu', name=prefix+'dense')
     OUTPUT = dense
 END

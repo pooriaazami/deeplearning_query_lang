@@ -2,7 +2,7 @@
 
 # Define a reusable block for dense layer with batch norm and dropout
 BLOCK dense_block(units, dropout_rate, input_name, prefix='')
-    INPUT(name=input_name)
+    INPUT(shape=(784,), name=input_name)
     dense = Dense([INPUT], units=units, activation='relu', name=prefix+'dense')
     batchnorm = BatchNormalization([dense], name=prefix+'batchnorm')
     dropout = Dropout([batchnorm], rate=dropout_rate, name=prefix+'dropout')

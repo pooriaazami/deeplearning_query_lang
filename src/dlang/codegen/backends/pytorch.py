@@ -2,7 +2,11 @@
 # This module contains templates and functions to generate PyTorch code from the AST.
 
 from typing import Dict, List, Any, Optional
-from ...parser.ast import *
+from ...parser.ast import (
+    Model, Input, Output, Assignment, FunctionCall,
+    Number, String, Variable, Boolean,
+    Block, Repeat, CustomLayer
+)
 
 class PyTorchBackend:
     def __init__(self):
@@ -64,7 +68,7 @@ class PyTorchBackend:
             input_shapes[inp.name] = inp.shape
 
         # Generate layers
-        self._generate_layers(ast.layers, input_shapes)
+        self._generate_layers(ast.layers, input_shapes, lines)
 
         self.indent_level -= 1
 
@@ -80,7 +84,7 @@ class PyTorchBackend:
             tensor_map[inp.name] = 'x'  # Input maps to the forward parameter
 
         # Process layers to build forward pass
-        self._generate_forward_pass(ast.layers, tensor_map)
+        self._generate_forward_pass(ast.layers, tensor_map, lines)
 
         # Handle outputs
         if ast.outputs:
@@ -99,38 +103,53 @@ class PyTorchBackend:
 
         return '\n'.join(lines)
 
-    def _generate_layers(self, layers: List[Any], input_shapes: Dict[str, tuple]):
+    def _generate_layers(self, layers: List[Any], input_shapes: Dict[str, tuple], lines: List[str]):
         """Generate layer definitions in __init__"""
         for i, layer_item in enumerate(layers):
             if isinstance(layer_item, tuple):
                 # Handle special cases like block inputs/outputs
                 continue
-            elif hasattr(layer_item, 'name') and hasattr(layer_item, 'type'):
-                # Regular layer
-                layer = layer_item
-                layer_name = self._make_valid_name(layer.name)
-                self.layers[layer.name] = layer_name
+            elif hasattr(layer_item, 'target') and hasattr(layer_item, 'expression'):
+                # Assignment object - this represents a layer definition or variable assignment
+                assignment = layer_item
+                target_name = assignment.target
+                expression = assignment.expression
 
-                # Generate layer definition
-                params = []
-                for param_name, param_value in layer.parameters.items():
-                    if isinstance(param_value, str):
-                        params.append(f"{param_name}='{param_value}'")
-                    elif param_value is None:
-                        continue  # Skip None values
-                    elif isinstance(param_value, (int, float)):
-                        params.append(f"{param_name}={param_value}")
+                # Only process FunctionCall expressions as layers (DENSE, Conv2D, etc.)
+                # Variable expressions (like INPUT) are handled in forward pass
+                if isinstance(expression, FunctionCall):
+                    func_call = expression
+                    # Extract function details
+                    func_name = func_call.name  # e.g., 'DENSE'
+
+                    # Convert to valid Python layer name
+                    layer_name = self._make_valid_name(target_name)
+                    self.layers[target_name] = layer_name
+
+                    # Generate layer definition from function call
+                    # Start with the base class from func_name
+                    pytorch_class = self._map_to_pytorch_class(func_name)
+
+                    # Collect parameters from args and kwargs
+                    params = []
+
+                    # Process positional arguments (args)
+                    for arg in func_call.args:
+                        param_str = self._extract_value(arg)
+                        if param_str is not None:
+                            params.append(param_str)
+
+                    # Process keyword arguments (kwargs)
+                    for kwarg_name, kwarg_value in func_call.kwargs.items():
+                        param_str = self._extract_value(kwarg_value)
+                        if param_str is not None:
+                            params.append(f"{kwarg_name}={param_str}")
+
+                    params_str = ', '.join(params)
+                    if params_str:
+                        lines.append(f'{self.indent()}self.{layer_name} = nn.{pytorch_class}({params_str})')
                     else:
-                        params.append(f"{param_name}={repr(param_value)}")
-
-                params_str = ', '.join(params)
-                if params_str:
-                    lines = [f'{self.indent()}self.{layer_name} = nn.{layer.type}({params_str})']
-                else:
-                    lines = [f'{self.indent()}self.{layer_name} = nn.{layer.type}()']
-
-                # Store for later use in forward pass
-                # We'll handle the actual forward pass generation separately
+                        lines.append(f'{self.indent()}self.{layer_name} = nn.{pytorch_class}()')
 
             elif isinstance(layer_item, Block):
                 # Generate block as a nested class or as sequential layers
@@ -139,7 +158,7 @@ class PyTorchBackend:
                 if not block_class_name.endswith('Block'):
                     block_class_name += 'Block'
 
-                lines = [f'{self.indent()}self.{block.name} = {block_class_name}()']
+                lines.append(f'{self.indent()}self.{block.name} = {block_class_name}()')
                 # We would need to generate the block class separately
                 # For simplicity, we'll treat blocks as sequential for now
 
@@ -155,19 +174,112 @@ class PyTorchBackend:
                 # For now, we'll note that custom layers need external implementation
                 pass
 
-    def _generate_forward_pass(self, layers: List[Any], tensor_map: Dict[str, str]):
+    def _extract_value(self, ast_node) -> Optional[str]:
+        """Extract a string representation of a value from an AST node"""
+        if isinstance(ast_node, Number):
+            return str(ast_node.value)
+        elif isinstance(ast_node, String):
+            # Return the string value WITH quotes for code generation
+            return repr(ast_node.value)
+        elif isinstance(ast_node, Boolean):
+            # Return the boolean value as a Python literal
+            return str(ast_node.value)
+        elif isinstance(ast_node, Variable):
+            # This refers to a variable/tensor - handled in forward pass, not layer definition
+            return None
+        else:
+            # For other types, try to get a string representation
+            try:
+                return str(ast_node.value) if hasattr(ast_node, 'value') else repr(ast_node)
+            except:
+                return repr(ast_node)
+
+    def _generate_forward_pass(self, layers: List[Any], tensor_map: Dict[str, str], lines: List[str]):
         """Generate forward pass statements"""
-        # This is a simplified implementation
-        # A full implementation would properly track tensor dependencies
+        # Process each layer to build the forward pass
+        for layer_item in layers:
+            if isinstance(layer_item, tuple):
+                # Handle special cases like block inputs/outputs
+                continue
+            elif hasattr(layer_item, 'target') and hasattr(layer_item, 'expression'):
+                # Assignment object - this represents a layer application or variable assignment
+                assignment = layer_item
+                target_name = assignment.target
+                expression = assignment.expression
 
-        # For now, we'll generate a simple forward pass that processes layers sequentially
-        # In reality, we need to build a proper dependency graph
+                if isinstance(expression, FunctionCall):
+                    # This is a layer/function call (DENSE, Conv2D, etc.)
+                    func_call = expression
 
-        # Add comment about forward pass generation
-        lines = [f'{self.indent()}# Forward pass - simplified implementation']
-        lines.append(f'{self.indent()}# In a full implementation, this would properly track tensor dependencies')
-        lines.append(f'{self.indent()}# For now, returning input as placeholder')
-        lines.append(f'{self.indent()}return x')
+                    # Get input tensor names from args
+                    input_tensors = []
+                    for arg in func_call.args:
+                        tensor_str = self._extract_tensor_reference(arg, tensor_map)
+                        if tensor_str is not None:
+                            input_tensors.append(tensor_str)
+
+                    # Generate the layer call
+                    layer_name = self._make_valid_name(target_name)
+                    if len(input_tensors) == 1:
+                        tensor_map[target_name] = f'self.{layer_name}({input_tensors[0]})'
+                    elif len(input_tensors) > 1:
+                        tensor_map[target_name] = f'self.{layer_name}({", ".join(input_tensors)})'
+                    else:
+                        # No tensor inputs - this shouldn't happen for layers, but handle gracefully
+                        tensor_map[target_name] = f'self.{layer_name}()'
+
+                elif isinstance(expression, Variable):
+                    # This is a variable reference (like INPUT, or referencing a previous layer)
+                    var_name = expression.name
+                    if var_name in tensor_map:
+                        tensor_map[target_name] = tensor_map[var_name]
+                    elif var_name == 'INPUT':
+                        # Special case: INPUT token refers to the model's input
+                        # We assume there is only one input and use the forward parameter 'x'
+                        tensor_map[target_name] = 'x'
+                    else:
+                        # Unknown variable - for INPUT, this should be handled by the input mapping
+                        # For other variables, it might be an error
+                        tensor_map[target_name] = var_name  # Fallback
+
+            elif isinstance(layer_item, Repeat):
+                # Handle repeat loops - unroll for now
+                repeat = layer_item
+                # For simplicity, we'll skip complex loop handling in this implementation
+                # A full implementation would need to unroll or create actual loops
+                pass
+
+            # Handle activation functions and other operations that might be in layers
+            # For now, we assume they're handled as part of layer definitions
+
+    def _extract_tensor_reference(self, ast_node, tensor_map: Dict[str, str]) -> Optional[str]:
+        """Extract a tensor reference from an AST node, returning the mapped tensor name"""
+        if isinstance(ast_node, Variable):
+            if ast_node.name in tensor_map:
+                return tensor_map[ast_node.name]
+            else:
+                # Unknown variable - return as-is for now
+                return ast_node.name
+        else:
+            # For literals and other values, extract their string representation
+            value_str = self._extract_value(ast_node)
+            return value_str
+
+    def _map_to_pytorch_class(self, func_name: str) -> str:
+        """Map DL function names to PyTorch class names"""
+        func_name_upper = func_name.upper()
+        mapping = {
+            'DENSE': 'Linear',
+            'CONV2D': 'Conv2d',
+            'GRU': 'GRU',
+            'LSTM': 'LSTM',
+            'DROPOUT': 'Dropout',
+            'BATCHNORM': 'BatchNorm1d',
+            'MAXPOOL2D': 'MaxPool2d',
+            'AVGPOOL2D': 'AvgPool2d',
+            # Add more mappings as needed
+        }
+        return mapping.get(func_name_upper, func_name)  # Default to original name if not found
 
     def _make_valid_name(self, name: str) -> str:
         """Convert a name to a valid Python identifier"""

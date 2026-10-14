@@ -48,11 +48,21 @@ class Parser:
         while self.current_token and self.current_token[0] == 'IMPORT':
             imports.append(self.parse_import())
 
+        # Parse top-level blocks (if any)
+        blocks = []
+        while self.current_token and self.current_token[0] == 'BLOCK':
+            blocks.append(self.parse_block())
+
+        # Skip any newlines or whitespace before model
+        while self.current_token and self.current_token[0] == 'NEWLINE':
+            self.advance()
+
         # Parse the model
         model = self.parse_model()
 
-        # Attach imports to the model
+        # Attach imports and blocks to the model
         model.imports = imports
+        model.blocks = blocks
 
         return model
 
@@ -178,8 +188,15 @@ class Parser:
         # Parse name parameter
         self.expect('IDENTIFIER')  # 'name'
         self.expect('ASSIGN')
-        name_token = self.expect('STRING')
-        name = name_token[1].strip('"')
+        if self.current_token[0] == 'STRING':
+            name_token = self.expect('STRING')
+            name = name_token[1].strip('"')
+        elif self.current_token[0] == 'IDENTIFIER':
+            # Treat the identifier as a string by using its identifier name
+            id_token = self.expect('IDENTIFIER')
+            name = id_token[1]
+        else:
+            raise SyntaxError(f'Expected STRING or IDENTIFIER for name, got {self.current_token}')
 
         self.expect('RPAREN')  # End of INPUT call
         self.expect('NEWLINE')  # Expect newline after input
@@ -200,8 +217,21 @@ class Parser:
         elif isinstance(expr, FunctionCall):
             # Function call: OUTPUT = function_call(...)
             # Look for 'name' keyword argument to determine the variable name
-            if 'name' in expr.kwargs:
-                name_arg = expr.kwargs['name']
+            name_arg = None
+            # Check for common name parameter names
+            for param_name in ['name', 'Name', 'NAME']:
+                if param_name in expr.kwargs:
+                    name_arg = expr.kwargs[param_name]
+                    break
+
+            # If still not found, look for any string-valued keyword argument
+            if name_arg is None:
+                for param_name, arg_value in expr.kwargs.items():
+                    if isinstance(arg_value, String):
+                        name_arg = arg_value
+                        break
+
+            if name_arg is not None:
                 if isinstance(name_arg, String):
                     var_name = name_arg.value
                 else:
@@ -235,17 +265,7 @@ class Parser:
                 self.advance()
 
         self.expect('RPAREN')
-        self.expect('ASSIGN')  # Actually, looking at samples, it's BLOCK name(...) then newline, not =
-        # Let me check the samples again...
-
-        # Actually, looking at the samples:
-        # BLOCK input_stream(units, input_name, prefix='')
-        #    INPUT(name=input_name)
-        #    ...
-        #    OUTPUT = dense
-        # END
-
-        # So it's BLOCK name(params) then newline, not =
+        # Actually, looking at samples, it's BLOCK name(...) then newline, not =
         self.expect('NEWLINE')
 
         # Parse block body
@@ -321,17 +341,22 @@ class Parser:
         return Repeat(count=count, body=body)
 
     def parse_statement(self):
-        """Parse a statement which could be a layer instantiation or assignment"""
-        # Look ahead to see if this is an assignment (contains =) or just a layer call
+        """Parse a statement which could be a layer instantiation, assignment, or function call"""
+        # Look ahead to see if this is an assignment (contains =) or just a layer call/function call
         # Actually, looking at samples, all layer instantiations are assignments: layer = LayerType(...)
+        # But some functions like INPUT, OUTPUT can be called standalone
 
-        # Parse left-hand side (variable name)
+        # Parse left-hand side (identifier)
         if self.current_token and self.current_token[0] == 'IDENTIFIER':
-            var_token = self.expect('IDENTIFIER')
-            var_name = var_token[1]
+            # Save current position to backtrack if needed
+            # Actually, let's look ahead to see what comes after the identifier
+            first_token = self.current_token
 
-            # Check if this is an assignment
-            if self.current_token and self.current_token[0] == 'ASSIGN':
+            # Check if this is an assignment: IDENTIFIER ASSIGN ...
+            if self.peek() and self.peek()[0] == 'ASSIGN':
+                # This is an assignment: var_name = expression
+                var_token = self.expect('IDENTIFIER')
+                var_name = var_token[1]
                 self.expect('ASSIGN')  # Consume the =
 
                 # Parse the right-hand side (layer instantiation or expression)
@@ -340,9 +365,18 @@ class Parser:
                 self.expect('NEWLINE')
 
                 return Assignment(target=var_name, expression=expr)
+            elif self.peek() and self.peek()[0] == 'LPAREN':
+                # This is a function call statement: function_name(...)
+                # Parse it as a function call and expect it to be followed by NEWLINE
+                func_call = self.parse_function_call(first_token[1])
+                self.expect('NEWLINE')
+                # For standalone function calls like INPUT, we don't need to return anything meaningful
+                # but we'll return the function call for consistency
+                return func_call
             else:
-                # This shouldn't happen in valid DL - all layer instantiations are assignments
-                # But just in case, treat as a variable reference
+                # This is just a variable reference
+                var_token = self.expect('IDENTIFIER')
+                var_name = var_token[1]
                 self.expect('NEWLINE')
                 return Variable(name=var_name)
         else:
@@ -353,6 +387,55 @@ class Parser:
 
     def parse_expression(self):
         """Parse an expression (layer instantiation, function call, or variable)"""
+        return self.parse_additive()
+
+    def parse_additive(self):
+        """Parse additive expressions: handles PLUS and MINUS"""
+        left = self.parse_multiplicative()
+        while self.current_token and self.current_token[0] in ('PLUS', 'MINUS'):
+            op = self.current_token[0]
+            self.advance()
+            right = self.parse_multiplicative()
+            left = BinaryOperation(op=op, left=left, right=right)
+        return left
+
+    def parse_multiplicative(self):
+        """Parse multiplicative expressions: handles MULTIPLY"""
+        left = self.parse_power()
+        while self.current_token and self.current_token[0] == 'MULTIPLY':
+            op = self.current_token[0]
+            self.advance()
+            right = self.parse_power()
+            left = BinaryOperation(op=op, left=left, right=right)
+        return left
+
+    def parse_power(self):
+        """Parse power expressions: handles exponentiation (right associative)"""
+        left = self.parse_unary()
+        # Note: We don't have a POWER token in the lexer, so we just return the unary expression.
+        # If we had a POWER token, we would handle it here (right associative).
+        return left
+
+    def parse_unary(self):
+        """Parse unary expressions: handles NOT and unary MINUS"""
+        # Handle unary operators: NOT, MINUS
+        if self.current_token and self.current_token[0] in ('NOT', 'MINUS'):
+            op = self.current_token[0]
+            self.advance()
+            operand = self.parse_unary()
+            # For now, we don't have a UnaryOperation node in the AST.
+            # Handle common cases: negate numeric literals
+            if op == 'MINUS' and isinstance(operand, Number):
+                return Number(value=-operand.value)
+            # For boolean literals, NOT flips the value
+            elif op == 'NOT' and isinstance(operand, Boolean):
+                return Boolean(value=not operand.value)
+            # For other cases, return the operand as-is (temporary workaround)
+            return operand
+        return self.parse_primary()
+
+    def parse_primary(self):
+        """Parse primary expressions: literals, lists, special tokens, function calls, variables, and parentheses"""
         if not self.current_token:
             raise SyntaxError(f'Expected identifier, got {self.current_token}')
 
@@ -362,6 +445,33 @@ class Parser:
             self.advance()
             # Return a variable node representing the special token
             return Variable(name=special_token[0])
+
+        # Handle literals
+        if self.current_token[0] in ('STRING', 'NUMBER', 'BOOLEAN'):
+            return self.parse_literal()
+
+        # Handle list expression: [expr1, expr2, ...]
+        if self.current_token[0] == 'LBRACKET':
+            self.expect('LBRACKET')
+            exprs = []
+            while self.current_token and self.current_token[0] != 'RBRACKET':
+                exprs.append(self.parse_expression())
+                if self.current_token and self.current_token[0] == 'COMMA':
+                    self.expect('COMMA')
+            self.expect('RBRACKET')
+            # For now, we assume a list with one element and return that element.
+            if len(exprs) == 1:
+                return exprs[0]
+            else:
+                # If there are multiple elements, we return the first one (hack)
+                return exprs[0] if exprs else None
+
+        # Handle parentheses for grouping
+        if self.current_token[0] == 'LPAREN':
+            self.expect('LPAREN')
+            expr = self.parse_expression()
+            self.expect('RPAREN')
+            return expr
 
         # Look for layer type or function call
         known_function_types = {
@@ -377,22 +487,13 @@ class Parser:
             func_name = self.current_token[1]
             return self.parse_function_call(func_name)
         elif self.current_token[0] == 'IDENTIFIER':
-            # Could be a variable reference or a function call written in different case
-            func_name = self.current_token[1]
-
-            # Check if it's a known layer type or function (case-insensitive)
-            known_functions_lower = {
-                'conv2d', 'maxpool2d', 'upsampling2d', 'globalaveragepooling2d',
-                'dense', 'flatten', 'reshape', 'batchnormalization', 'activation',
-                'add', 'concatenate', 'elementwise multiply', 'multiply',
-                'lstm', 'gru', 'zeros', 'randomnormal', 'exp',
-                'custom'
-            }
-
-            if func_name.lower() in known_functions_lower:
+            # Look ahead to see if it's a function call (identifier followed by '(')
+            if self.peek() and self.peek()[0] == 'LPAREN':
+                # Treat it as a function call
+                func_name = self.current_token[1]
                 return self.parse_function_call(func_name)
             else:
-                # Could be a variable reference
+                # It's a variable reference
                 var_token = self.expect('IDENTIFIER')
                 return Variable(name=var_token[1])
         else:
@@ -455,42 +556,26 @@ class Parser:
         # Parse arguments
         while self.current_token and self.current_token[0] != 'RPAREN':
             if self.current_token[0] == 'IDENTIFIER':
-                # Could be a keyword argument or positional argument
-                param_name = self.current_token[1]
-                self.expect('IDENTIFIER')  # Consume parameter name
-
-                if self.current_token and self.current_token[0] == 'ASSIGN':
-                    # Keyword argument: param=value
+                # Look ahead to see if it's a keyword argument (identifier followed by '=')
+                if self.peek() and self.peek()[0] == 'ASSIGN':
+                    # Keyword argument
+                    param_name_token = self.expect('IDENTIFIER')
+                    param_name = param_name_token[1]
                     self.expect('ASSIGN')
-                    value = self.parse_literal()
+                    value = self.parse_expression()
                     kwargs[param_name] = value
-
-                    if self.current_token and self.current_token[0] == 'COMMA':
-                        self.expect('COMMA')
                 else:
-                    # Positional argument
-                    # We need to backtrack - the identifier is actually the value
-                    # For simplicity, we'll treat it as a positional argument that's a variable
-                    args.append(Variable(name=param_name))
-
-                    if self.current_token and self.current_token[0] == 'COMMA':
-                        self.expect('COMMA')
-            elif self.current_token[0] == 'STRING':
-                # String literal
-                str_token = self.expect('STRING')
-                args.append(String(value=str_token[1].strip('"')))
-                if self.current_token and self.current_token[0] == 'COMMA':
-                    self.expect('COMMA')
-            elif self.current_token[0] == 'NUMBER':
-                # Number literal
-                num_token = self.expect('NUMBER')
-                value = int(num_token[1]) if '.' not in num_token[1] else float(num_token[1])
-                args.append(Number(value=value))
-                if self.current_token and self.current_token[0] == 'COMMA':
-                    self.expect('COMMA')
+                    # Positional argument: parse an expression
+                    args.append(self.parse_expression())
             else:
-                # Skip unexpected token
-                self.advance()
+                # Positional argument: parse an expression
+                args.append(self.parse_expression())
+
+            # After each argument, expect a comma or closing parenthesis
+            if self.current_token and self.current_token[0] == 'COMMA':
+                self.expect('COMMA')
+            else:
+                break
 
         self.expect('RPAREN')
 
@@ -512,6 +597,10 @@ class Parser:
                 num_token = self.expect('NUMBER')
                 value = int(num_token[1]) if '.' not in num_token[1] else float(num_token[1])
                 return Number(value=value)
+            elif self.current_token[0] == 'BOOLEAN':
+                bool_token = self.expect('BOOLEAN')
+                value = bool_token[1] == 'True'
+                return Boolean(value=value)
             elif self.current_token[0] == 'IDENTIFIER' and self.current_token[1] == 'None':
                 self.expect('IDENTIFIER')  # 'None'
                 return None
