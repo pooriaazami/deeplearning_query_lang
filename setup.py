@@ -29,6 +29,7 @@ setup(
     extras_require={
         'pytorch': ['torch'],
         'tensorflow': ['tensorflow'],
+        'docs': ['mkdocs>=1.0', 'mkdocs-material>=4.0'],
     },
     entry_points={
         'console_scripts': [

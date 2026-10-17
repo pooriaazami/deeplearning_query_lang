@@ -1,0 +1,61 @@
+site_name: Deep Learning Description Language Documentation
+site_url: https://yourusername.github.io/DeepLearningLang
+site_author: Your Name
+site_description: Documentation for the Deep Learning Description Language (DL) - a DSL for defining neural network architectures
+
+repo_url: https://github.com/yourusername/DeepLearningLang
+repo_name: yourusername/DeepLearningLang
+
+theme:
+  name: material
+  palette:
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to dark mode
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch-off
+        name: Switch to light mode
+  font:
+    text: Roboto
+    code: Roboto Mono
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+    - navigation.top
+    - search.highlight
+    - search.share
+    - search.suggest
+    - content.code.annotate
+    - content.tabs.link
+
+nav:
+  - Home: index.md
+  - Model Description Language: model_description_language.md
+  - Features: FEATURES.md
+  - Implementation Summary: IMPLEMENTATION_SUMMARY.md
+  - Getting Started: README.md
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - tables
+  - attr_list
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+
+plugins:
+  - search
